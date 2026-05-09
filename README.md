@@ -142,6 +142,7 @@ general: # 通用配置
 log_level: INFO # 日志等级，诊断问题时可以改为 DEBUG
 osc: # OSC 服务配置
   listen_host: 127.0.0.1 # 如果 VRChat 在其他主机运行，请改为 0.0.0.0，并给 VRChat 正确配置 osc 启动命令行参数。
+  use_oscquery: true
   listen_port: 9001
 version: v0.2 # 配置文件版本
 web_server: # Web 服务器配置

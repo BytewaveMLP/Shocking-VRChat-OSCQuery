@@ -140,7 +140,8 @@ general: # General configuration
 log_level: INFO # Log level, can be changed to DEBUG for troubleshooting
 osc: # OSC service configuration
   listen_host: 127.0.0.1 # If VRChat runs on another host, change to 0.0.0.0 and configure VRChat with the correct OSC startup command line parameters.
-  listen_port: 9001
+  use_oscquery: true # Whether to use OSCQuery protocol. If true, the program will automatically obtain an open UDP port for OSC receiving and an open TCP port for OSCQuery service
+  listen_port: 9001 # If not using OSCQuery, use this port for OSC receiving
 version: v0.2 # Configuration file version
 web_server: # Web server configuration
   listen_host: 127.0.0.1 # If you need to open the web page for scanning from another host, change to 0.0.0.0
