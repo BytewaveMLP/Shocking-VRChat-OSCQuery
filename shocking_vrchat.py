@@ -17,9 +17,12 @@ from srv.handler.machine_handler import TuyaHandler, TuYaConnection
 from pythonosc.osc_server import AsyncIOOSCUDPServer
 from pythonosc.dispatcher import Dispatcher
 
+from tinyoscquery.queryservice import OSCQueryService
+from tinyoscquery.utility import get_open_tcp_port, get_open_udp_port
+
 app = Flask(__name__)
 
-CONFIG_FILE_VERSION  = 'v0.2'
+CONFIG_FILE_VERSION  = 'v0.2-oscquery'
 CONFIG_FILENAME = f'settings-advanced-{CONFIG_FILE_VERSION}.yaml'
 CONFIG_FILENAME_BASIC = f'settings-{CONFIG_FILE_VERSION}.yaml'
 SETTINGS_BASIC = {
@@ -132,7 +135,7 @@ SETTINGS = {
     },
     'osc':{
         'listen_host': '127.0.0.1',
-        'listen_port': 9001,
+        'use_oscquery': True,
     },
     'web_server':{
         'listen_host': '127.0.0.1',
@@ -312,11 +315,15 @@ async def wshandler(connection):
     await client.serve()
 
 async def async_main():
+    global osc_port
+    
     for handler in handlers:
         handler.start_background_jobs()
     try: 
-        server = AsyncIOOSCUDPServer((SETTINGS["osc"]["listen_host"], SETTINGS["osc"]["listen_port"]), dispatcher, asyncio.get_event_loop())
-        logger.success(f'OSC Listening: {SETTINGS["osc"]["listen_host"]}:{SETTINGS["osc"]["listen_port"]}')
+        osc_ip = SETTINGS["osc"]["listen_host"]
+        server = AsyncIOOSCUDPServer((osc_ip, osc_port), dispatcher, asyncio.get_event_loop())
+        logger.success(f'OSC Listening: {osc_ip}:{osc_port}')
+
         transport, protocol = await server.create_serve_endpoint()
         # await wsserve(wshandler, "127.0.0.1", 8765)
     except Exception as e:
@@ -380,9 +387,12 @@ def config_init():
     logger.success("配置文件初始化完成，Websocket服务需要监听外来连接，如弹出防火墙提示，请点击允许访问。")
 
 def main():
-    global dispatcher, handlers
+    global dispatcher, handlers, osc_port
     dispatcher = Dispatcher()
     handlers = []
+
+    # For debug, print all received OSC messages
+    dispatcher.map('/avatar/parameters/*', lambda addr, *args: logger.debug(f"Received OSC: {addr} {args}"))
 
     for chann in ['A', 'B']:
         config_chann_name = f'channel_{chann.lower()}'
@@ -405,9 +415,26 @@ def main():
             logger.success(f"Machine Listening：{param}")
             dispatcher.map(param, machine_tuya_handler.osc_handler)
 
+    should_use_oscquery = SETTINGS['osc'].get('use_oscquery', False)
+
+    if should_use_oscquery:
+        osc_port = get_open_udp_port()
+        osc_query_port = get_open_tcp_port()
+
+        logger.info(f"OSCQuery enabled, will use UDP {osc_port} for OSC receiving, and TCP {osc_query_port} for OSCQuery service.")
+    else:
+        osc_port = SETTINGS['osc']['listen_port']
 
     th = Thread(target=async_main_wrapper, daemon=True)
     th.start()
+
+    if should_use_oscquery:
+        logger.info('Using OSCQuery')
+
+        oscq_service = OSCQueryService('Shocking-VRChat', osc_query_port, osc_port)
+        oscq_service.advertise_endpoint('/avatar') # so VRChat sends us avatar data
+
+        logger.success(f'OSCQuery Listening on port {osc_query_port}')
 
     if SETTINGS['general']['auto_open_qr_web_page']:
         import webbrowser

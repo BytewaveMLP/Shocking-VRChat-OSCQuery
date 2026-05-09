@@ -3,5 +3,8 @@ flask[async]
 loguru
 websockets
 python-osc
+# python-oscquery
+git+https://github.com/Hackebein/tinyoscquery@7e0984bb8768ad3b6e5c509b842a5c28e3730170
 pyyaml
 tuya-connector-python
+numpy
